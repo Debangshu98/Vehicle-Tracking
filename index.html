@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wheelseye Dashboard - Dispatch Tracking</title>
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Left Navigation Sidebar -->
+  <aside class="icon-sidebar">
+    <div class="logo">≡</div>
+    <div class="nav-tab active" onclick="switchMainTab('dashboard', this)" title="Dispatch Tracking">
+      Dispatch Tracking
+    </div>
+    <div class="nav-tab" onclick="switchMainTab('penetration', this)" title="Market Penetration">
+      Market Penetration
+    </div>
+    <div class="nav-tab" onclick="switchMainTab('serial', this)" title="Serial Tracking">
+      Serial Tracking
+    </div>
+  </aside>
+
+  <div class="dashboard-container">
+    <header class="top-header">
+      <div class="header-left">
+        <h2 class="header-title">Dashboard</h2>
+        <div class="search-box">
+          🔍 <input type="text" id="vehicle-search-input" placeholder="Search vehicle..." />
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-action">⏳ Filters</button>
+        <button class="btn-action">📥 Download</button>
+        <button class="btn-action" style="color: var(--primary-blue);">🔔 Alerts</button>
+      </div>
+    </header>
+
+    <div class="content-workspace">
+      <!-- TAB 1: Dispatch Tracking View -->
+      <div id="view-dashboard" class="main-view active-view">
+        
+        <!-- Vehicle List Panel -->
+        <div class="vehicle-panel">
+          <div class="filter-pills">
+            <button class="pill active" id="tab-all" onclick="filterVehicles('all', this)">All(0)</button>
+            <button class="pill" id="tab-running" onclick="filterVehicles('running', this)">Running(0)</button>
+            <button class="pill" id="tab-stopped" onclick="filterVehicles('stopped', this)">Stopped(0)</button>
+            <button class="pill" id="tab-nosignal" onclick="filterVehicles('nosignal', this)">No Signal(0)</button>
+          </div>
+
+          <div class="vehicle-list" id="vehicle-list">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- In-Line Animated Route History Sidebar Drawer -->
+        <div class="history-drawer" id="history-drawer">
+          <div class="drawer-inner">
+            <div class="drawer-header">
+              <div class="drawer-tabs">
+                <span class="tab active">Route History</span>
+                <span class="tab">Features</span>
+              </div>
+              <span class="close-btn" onclick="toggleDrawer(false)">✕</span>
+            </div>
+
+            <div class="drawer-body">
+              <!-- Red Alert for No Signal Vehicles -->
+              <div id="no-signal-alert" class="no-signal-banner" style="display: none;">
+                🚨 Vehicle did not run today
+              </div>
+
+              <div class="selected-vehicle-badge" id="drawer-vehicle-id">Select a Vehicle</div>
+              <div class="dropdown-row">
+                <select class="date-select">
+                  <option>Today</option>
+                </select>
+                <!-- <div class="icon-actions">
+                  <span>🔄</span> <span>▶</span> <span>📥</span>
+                </div> -->
+              </div>
+
+              <div class="summary-cards">
+                <div class="summary-card active">
+                  <h4>Distance</h4>
+                  <div class="card-val" id="drawer-distance">0.00 km</div>
+                  <div class="card-sub" id="drawer-status-sub">Status: Idle</div>
+                </div>
+                <div class="summary-card">
+                  <h4>Stops</h4>
+                  <div class="card-val-muted" id="drawer-stops-count">0 stops</div>
+                  <div class="card-sub" id="drawer-stop-time">(0 hrs : 0 min)</div>
+                </div>
+              </div>
+
+              <div class="stop-item">
+                <div class="stop-marker-red"></div>
+                <div class="stop-details">
+                  <div class="stop-title">Last Known Stop <span class="stop-duration" id="drawer-stop-duration">-</span></div>
+                  <p class="stop-address" id="drawer-address">Select a vehicle to inspect stop details.</p>
+                  <span class="time-range" id="drawer-last-updated">-</span>
+                  <span class="btn-save">+ Save Location</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Map Workspace -->
+        <div class="map-wrapper">
+          <div id="map"></div>
+
+          <!-- Play Route Button Positioned Inside Map View -->
+          <button class="btn-floating-play" id="btn-play-route" onclick="openPlayRouteModal()">
+            <span>▶</span> Play Route
+          </button>
+
+          <div class="map-controls-top">
+            <div class="map-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</div>
+            <div class="map-btn" onclick="zoomMap(1)" title="Zoom In">+</div>
+            <div class="map-btn" onclick="zoomMap(-1)" title="Zoom Out">-</div>
+          </div>
+
+          <div class="map-type-toggle">
+            <div class="map-type-btn active" id="btn-map" onclick="setTileType('map')">Map</div>
+            <div class="map-type-btn" id="btn-sat" onclick="setTileType('satellite')">Satellite</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: Market Penetration Workspace -->
+      <div id="view-penetration" class="main-view">
+        <div class="penetration-container">
+          <div class="pen-header">
+            <h3>Market Penetration Tracker</h3>
+            <select id="batch-selector" onchange="renderPenetrationData(this.value)"></select>
+          </div>
+
+          <div class="pen-stats-grid">
+            <div class="stat-card">
+              <h4>Total Batch Production</h4>
+              <div class="stat-value" id="val-produced">0</div>
+            </div>
+            <div class="stat-card">
+              <h4>Market Reached Units</h4>
+              <div class="stat-value" id="val-reached">0</div>
+            </div>
+            <div class="stat-card highlight">
+              <h4>Penetration Rate</h4>
+              <div class="stat-value" id="val-rate">0%</div>
+            </div>
+          </div>
+
+          <div class="progress-bar-container">
+            <div class="progress-fill" id="pen-progress"></div>
+          </div>
+
+          <div class="table-card">
+            <h4>Distribution Breakdown</h4>
+            <table class="pen-table">
+              <thead>
+                <tr>
+                  <th>Channel / Location</th>
+                  <th>Allocated Quantity</th>
+                  <th>Status</th>
+                  <th>Contribution Share</th>
+                </tr>
+              </thead>
+              <tbody id="pen-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: Serial Tracking Workspace -->
+      <div id="view-serial" class="main-view">
+        <div class="serial-container">
+          <div class="serial-search-card">
+            <h3>🔍 Serial Number Lookup & Security Audit</h3>
+            <div class="serial-input-group">
+              <input type="text" id="serial-search-input" placeholder="Enter Serial Number (e.g. SN-9901, SN-9902)..." />
+              <button onclick="searchSerial()">Track Serial</button>
+            </div>
+            <div class="quick-samples">
+              Try sample serials: 
+              <span onclick="quickSearch('SN-9901')">SN-9901 (Valid)</span> | 
+              <span onclick="quickSearch('SN-9902')">SN-9902 (Suspicious)</span> | 
+              <span onclick="quickSearch('SN-9903')">SN-9903 (Void)</span>
+            </div>
+          </div>
+
+          <div id="serial-result-wrapper" style="display: none;">
+            <div class="serial-status-banner" id="status-banner"></div>
+            <div class="pen-stats-grid">
+              <div class="stat-card">
+                <h4>Product Name</h4>
+                <div class="stat-value" style="font-size:1.2rem;" id="st-product-name">-</div>
+              </div>
+              <div class="stat-card">
+                <h4>Manufacturing Details</h4>
+                <div style="font-size:0.9rem; font-weight:600;" id="st-mfg-date">-</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);" id="st-batch-id">-</div>
+              </div>
+              <div class="stat-card">
+                <h4>Current Location & Holder</h4>
+                <div style="font-size:0.9rem; font-weight:600;" id="st-current-holder">-</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);" id="st-scans">-</div>
+              </div>
+            </div>
+
+            <div class="table-card" style="margin-top:16px;">
+              <h4>Lifecycle & Audit Scan History</h4>
+              <table class="pen-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Action / Event</th>
+                    <th>Scanned By / Location</th>
+                    <th>Device / Terminal</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="st-timeline-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Route Playback Modal Window -->
+  <div id="play-route-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-route-title">Route Playback Engine</h3>
+        <span class="close-btn" onclick="closePlayRouteModal()">✕</span>
+      </div>
+      <div class="modal-body">
+        <div class="map-video-container">
+          <div id="modal-map"></div>
+          <div class="speed-tooltip" id="speed-tooltip">
+            <div class="speed-val" id="tooltip-speed">18km/h</div>
+            <div class="speed-time" id="tooltip-time">Live Sync Active</div>
+          </div>
+        </div>
+
+        <div class="video-controls-bar">
+          <button id="btn-video-play" class="control-btn" onclick="toggleRoutePlayback()">▶</button>
+          <div class="progress-bar-wrapper" onclick="seekRoute(event)">
+            <div class="progress-fill" id="route-progress"></div>
+          </div>
+          <div class="speed-badge">1x</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>
